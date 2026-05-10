@@ -1,0 +1,585 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Ejercicio: Pomodoro Timer — STW 2026</title>
+  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;600&family=Source+Sans+3:wght@400;600;700&display=swap" rel="stylesheet">
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg: #fdfdfd;
+      --surface: #ffffff;
+      --border: #e2e2e2;
+      --text: #1a1a1a;
+      --muted: #666;
+      --dim: #999;
+      --accent: #b44c33;
+      --accent-bg: #fdf5f3;
+      --green: #2a7d4f;
+      --green-bg: #f2f9f5;
+      --blue: #2b5ea7;
+      --blue-bg: #f0f5fc;
+      --yellow: #8a6d10;
+      --yellow-bg: #fefbf0;
+      --code-bg: #f5f5f5;
+      --radius: 6px;
+    }
+
+    body {
+      font-family: 'Source Sans 3', 'Segoe UI', sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      line-height: 1.65;
+      padding: 0;
+    }
+
+    /* ── Header ──────────────────────────────── */
+    .header {
+      border-bottom: 1px solid var(--border);
+      padding: 32px 24px 28px;
+      text-align: center;
+    }
+    .header-course {
+      font-size: 12px;
+      text-transform: uppercase;
+      letter-spacing: 2.5px;
+      color: var(--dim);
+      margin-bottom: 10px;
+    }
+    .header h1 {
+      font-size: 26px;
+      font-weight: 700;
+      margin-bottom: 8px;
+    }
+    .header-hooks {
+      display: flex;
+      gap: 8px;
+      justify-content: center;
+      margin-top: 12px;
+    }
+    .header-hooks code {
+      font-family: 'IBM Plex Mono', monospace;
+      font-size: 13px;
+      background: var(--code-bg);
+      padding: 3px 10px;
+      border-radius: 4px;
+      border: 1px solid var(--border);
+    }
+    .header-desc {
+      color: var(--muted);
+      font-size: 15px;
+      max-width: 560px;
+      margin: 14px auto 0;
+    }
+
+    /* ── Container ────────────────────────────── */
+    .container {
+      max-width: 720px;
+      margin: 0 auto;
+      padding: 0 20px 60px;
+    }
+
+    /* ── Tabs ─────────────────────────────────── */
+    .tabs {
+      display: flex;
+      gap: 0;
+      border-bottom: 2px solid var(--border);
+      margin-top: 32px;
+      margin-bottom: 0;
+    }
+    .tab {
+      flex: 1;
+      padding: 14px 12px;
+      text-align: center;
+      cursor: pointer;
+      font-family: inherit;
+      font-size: 14px;
+      font-weight: 600;
+      color: var(--muted);
+      background: none;
+      border: none;
+      border-bottom: 2px solid transparent;
+      margin-bottom: -2px;
+      transition: color 0.2s, border-color 0.2s;
+    }
+    .tab:hover { color: var(--text); }
+    .tab.active {
+      color: var(--text);
+      border-bottom-color: var(--accent);
+    }
+    .tab-sub {
+      display: block;
+      font-size: 11px;
+      font-weight: 400;
+      color: var(--dim);
+      margin-top: 2px;
+    }
+
+    /* ── Panel content ────────────────────────── */
+    .panel { display: none; padding-top: 28px; }
+    .panel.active { display: block; }
+
+    .panel-intro {
+      font-size: 15px;
+      color: var(--muted);
+      margin-bottom: 24px;
+      padding-bottom: 20px;
+      border-bottom: 1px solid var(--border);
+    }
+
+    /* ── Sections ─────────────────────────────── */
+    .section {
+      margin-bottom: 28px;
+    }
+    .section-title {
+      font-size: 13px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 1.5px;
+      margin-bottom: 12px;
+      padding-bottom: 6px;
+      border-bottom: 1px solid var(--border);
+    }
+    .section-title.objectives { color: var(--blue); }
+    .section-title.steps { color: var(--green); }
+    .section-title.warnings { color: var(--accent); }
+    .section-title.hints { color: var(--yellow); }
+
+    /* ── Lists ────────────────────────────────── */
+    .item-list {
+      list-style: none;
+      padding: 0;
+    }
+    .item-list li {
+      position: relative;
+      padding: 8px 0 8px 24px;
+      font-size: 14.5px;
+      line-height: 1.55;
+      border-bottom: 1px solid #f0f0f0;
+    }
+    .item-list li:last-child { border-bottom: none; }
+    .item-list li::before {
+      position: absolute;
+      left: 0;
+      font-weight: 700;
+      font-size: 13px;
+    }
+    .item-list.numbered li::before {
+      content: attr(data-n) ".";
+      color: var(--green);
+      font-family: 'IBM Plex Mono', monospace;
+    }
+    .item-list.checked li::before {
+      content: "—";
+      color: var(--blue);
+    }
+    .item-list.warning li::before {
+      content: "x";
+      color: var(--accent);
+      font-family: 'IBM Plex Mono', monospace;
+    }
+    .item-list.hint li::before {
+      content: "*";
+      color: var(--yellow);
+      font-family: 'IBM Plex Mono', monospace;
+    }
+
+    /* ── Code blocks ──────────────────────────── */
+    code {
+      font-family: 'IBM Plex Mono', monospace;
+      font-size: 13px;
+      background: var(--code-bg);
+      padding: 1px 5px;
+      border-radius: 3px;
+    }
+    pre {
+      background: #1e1e1e;
+      color: #d4d4d4;
+      font-family: 'IBM Plex Mono', monospace;
+      font-size: 13px;
+      line-height: 1.6;
+      padding: 18px 20px;
+      border-radius: var(--radius);
+      overflow-x: auto;
+      margin: 14px 0;
+      border: 1px solid #333;
+    }
+    pre .comment { color: #6a9955; }
+    pre .keyword { color: #569cd6; }
+    pre .string { color: #ce9178; }
+    pre .function { color: #dcdcaa; }
+    pre .hook { color: #c586c0; }
+    pre .number { color: #b5cea8; }
+    pre .todo { color: #e6db74; background: #3e3d1a; padding: 0 4px; border-radius: 2px; }
+
+    /* ── Callout boxes ────────────────────────── */
+    .callout {
+      padding: 14px 16px;
+      border-radius: var(--radius);
+      font-size: 14px;
+      margin: 16px 0;
+      border-left: 3px solid;
+    }
+    .callout.info {
+      background: var(--blue-bg);
+      border-color: var(--blue);
+      color: #1e3a5f;
+    }
+    .callout.warning {
+      background: var(--accent-bg);
+      border-color: var(--accent);
+      color: #5a2a1a;
+    }
+    .callout.success {
+      background: var(--green-bg);
+      border-color: var(--green);
+      color: #1a4a2e;
+    }
+    .callout-title {
+      font-weight: 700;
+      font-size: 13px;
+      margin-bottom: 4px;
+    }
+
+    /* ── Requirements table ───────────────────── */
+    .req-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 14px;
+      margin: 14px 0;
+    }
+    .req-table th {
+      text-align: left;
+      padding: 8px 12px;
+      background: var(--code-bg);
+      border: 1px solid var(--border);
+      font-weight: 600;
+      font-size: 13px;
+    }
+    .req-table td {
+      padding: 8px 12px;
+      border: 1px solid var(--border);
+    }
+    .req-table tr:nth-child(even) td {
+      background: #fafafa;
+    }
+
+    /* ── Footer ───────────────────────────────── */
+    .footer {
+      text-align: center;
+      padding: 24px;
+      font-size: 12px;
+      color: var(--dim);
+      border-top: 1px solid var(--border);
+      margin-top: 40px;
+    }
+
+    @media (max-width: 600px) {
+      .header h1 { font-size: 20px; }
+      .tab { font-size: 13px; padding: 10px 8px; }
+      .tab-sub { display: none; }
+      pre { font-size: 12px; padding: 14px; }
+    }
+  </style>
+</head>
+<body>
+
+  <div class="header">
+    <div class="header-course">Software de Tecnologias Web &mdash; STW 2026</div>
+    <h1>Ejercicio: Pomodoro Timer</h1>
+    <div class="header-hooks">
+      <code>useState</code>
+      <code>useEffect</code>
+    </div>
+    <p class="header-desc">
+      Construye un temporizador Pomodoro funcional aplicando manejo de estado y efectos secundarios en React.
+      El ejercicio tiene tres niveles de dificultad progresiva.
+    </p>
+  </div>
+
+  <div class="container">
+
+    <!-- Tabs -->
+    <div class="tabs">
+      <button class="tab active" data-tab="n1">
+        Nivel 1
+        <span class="tab-sub">Guiado</span>
+      </button>
+      <button class="tab" data-tab="n2">
+        Nivel 2
+        <span class="tab-sub">Semi-guiado</span>
+      </button>
+      <button class="tab" data-tab="n3">
+        Nivel 3
+        <span class="tab-sub">Reto</span>
+      </button>
+    </div>
+
+    <!-- ════════════════════════════════════════════════════════ -->
+    <!-- NIVEL 1                                                 -->
+    <!-- ════════════════════════════════════════════════════════ -->
+    <div class="panel active" id="n1">
+
+      <p class="panel-intro">
+        Timer basico con inicio, pausa y reinicio. Se te proporciona la estructura del componente
+        con secciones marcadas como <code>TODO</code> que debes completar.
+      </p>
+
+      <!-- Objetivos -->
+      <div class="section">
+        <div class="section-title objectives">Objetivos</div>
+        <ul class="item-list checked">
+          <li>Usar <code>useState</code> para manejar los segundos restantes y el estado activo/pausado del timer.</li>
+          <li>Usar <code>useEffect</code> para crear un <code>setInterval</code> que reste un segundo cada 1000ms, y limpiarlo correctamente en la funcion de retorno (cleanup).</li>
+          <li>Formatear los segundos a formato <code>MM:SS</code> para mostrar en pantalla.</li>
+          <li>Implementar botones para iniciar/pausar y reiniciar el temporizador.</li>
+        </ul>
+      </div>
+
+      <!-- Pasos -->
+      <div class="section">
+        <div class="section-title steps">Instrucciones</div>
+        <ol class="item-list numbered">
+          <li data-n="1">Declara un estado <code>timeLeft</code> inicializado en <code>1500</code> (25 minutos en segundos) y un estado <code>isRunning</code> inicializado en <code>false</code>.</li>
+          <li data-n="2">Declara una variable con <code>useRef(null)</code> llamada <code>intervalRef</code> para almacenar el ID del intervalo. Esto evita que al guardar el ID en un estado se disparen re-renders innecesarios.</li>
+          <li data-n="3">Implementa un <code>useEffect</code> con la siguiente logica:
+            <ul style="margin-top:8px; padding-left:20px; list-style:disc; color:var(--muted);">
+              <li>Si <code>isRunning</code> es <code>true</code> y <code>timeLeft &gt; 0</code>, crea un <code>setInterval</code> que ejecute <code>setTimeLeft(prev =&gt; prev - 1)</code> cada 1000ms. Guarda el ID en <code>intervalRef.current</code>.</li>
+              <li>Si <code>timeLeft</code> llega a <code>0</code>, cambia <code>isRunning</code> a <code>false</code>.</li>
+              <li>En el <strong>return</strong> del efecto, llama <code>clearInterval(intervalRef.current)</code>.</li>
+              <li>El array de dependencias debe incluir <code>[isRunning, timeLeft]</code>.</li>
+            </ul>
+          </li>
+          <li data-n="4">Crea una funcion <code>formatTime(seconds)</code> que convierta un numero entero de segundos al formato <code>"MM:SS"</code>. Usa <code>Math.floor</code> y <code>String.padStart(2, '0')</code>.</li>
+          <li data-n="5">Implementa <code>toggleTimer</code> (alterna <code>isRunning</code>) y <code>resetTimer</code> (pone <code>isRunning</code> en false y <code>timeLeft</code> en 1500).</li>
+          <li data-n="6">Renderiza el tiempo formateado y los dos botones. El boton de inicio debe mostrar "Iniciar" o "Pausar" segun el estado.</li>
+        </ol>
+      </div>
+
+      <!-- Codigo base -->
+      <div class="section">
+        <div class="section-title" style="color:var(--text);">Codigo base</div>
+        <pre><span class="keyword">import</span> { <span class="hook">useState</span>, <span class="hook">useEffect</span>, <span class="hook">useRef</span> } <span class="keyword">from</span> <span class="string">'react'</span>;
+
+<span class="keyword">function</span> <span class="function">Pomodoro</span>() {
+  <span class="comment">// <span class="todo">TODO 1</span>: Declara los estados timeLeft e isRunning</span>
+
+  <span class="comment">// <span class="todo">TODO 2</span>: Declara intervalRef con useRef</span>
+
+  <span class="comment">// <span class="todo">TODO 3</span>: Implementa el useEffect para el timer</span>
+  <span class="comment">//   - Crea el intervalo si isRunning && timeLeft > 0</span>
+  <span class="comment">//   - Detén si timeLeft === 0</span>
+  <span class="comment">//   - Retorna la funcion de limpieza</span>
+
+  <span class="comment">// <span class="todo">TODO 4</span>: Funcion formatTime(seconds) => "MM:SS"</span>
+
+  <span class="comment">// <span class="todo">TODO 5</span>: Funciones toggleTimer y resetTimer</span>
+
+  <span class="keyword">return</span> (
+    &lt;div&gt;
+      <span class="comment">{/* <span class="todo">TODO 6</span>: Muestra el tiempo y los botones */}</span>
+    &lt;/div&gt;
+  );
+}
+
+<span class="keyword">export default</span> Pomodoro;</pre>
+      </div>
+
+      <!-- Errores comunes -->
+      <div class="section">
+        <div class="section-title warnings">Errores comunes a evitar</div>
+        <ul class="item-list warning">
+          <li>No retornar la funcion de limpieza en el <code>useEffect</code>. Sin el <code>return () =&gt; clearInterval(...)</code>, cada vez que el efecto se re-ejecuta se crea un nuevo intervalo sin eliminar el anterior, acumulando multiples intervalos simultaneos.</li>
+          <li>Usar <code>setTimeLeft(timeLeft - 1)</code> en lugar de <code>setTimeLeft(prev =&gt; prev - 1)</code>. Dentro del callback del <code>setInterval</code>, la variable <code>timeLeft</code> queda atrapada en un closure con su valor inicial. La forma funcional (<code>prev =&gt;</code>) siempre accede al valor mas reciente.</li>
+          <li>Olvidar detener el timer cuando <code>timeLeft</code> llega a <code>0</code>. Si no cambias <code>isRunning</code> a false, el intervalo sigue corriendo e intenta restar por debajo de cero.</li>
+        </ul>
+      </div>
+
+      <!-- Resultado esperado -->
+      <div class="callout success">
+        <div class="callout-title">Resultado esperado</div>
+        Al completar este nivel debes tener un timer que muestre <code>25:00</code>,
+        cuente hacia atras al presionar "Iniciar", se detenga con "Pausar",
+        y vuelva a <code>25:00</code> con "Reiniciar".
+      </div>
+    </div>
+
+
+    <!-- ════════════════════════════════════════════════════════ -->
+    <!-- NIVEL 2                                                 -->
+    <!-- ════════════════════════════════════════════════════════ -->
+    <div class="panel" id="n2">
+
+      <p class="panel-intro">
+        Extiende tu timer del Nivel 1 para que alterne entre modo trabajo y descanso,
+        y mantenga un historial de sesiones completadas. No se proporciona codigo base:
+        parte de tu solucion anterior.
+      </p>
+
+      <!-- Objetivos -->
+      <div class="section">
+        <div class="section-title objectives">Objetivos</div>
+        <ul class="item-list checked">
+          <li>Agregar un estado <code>mode</code> que alterne entre <code>"work"</code> y <code>"break"</code>.</li>
+          <li>Mantener un historial de sesiones completadas usando <code>useState</code> con un array.</li>
+          <li>Implementar un segundo <code>useEffect</code> que detecte cuando el tiempo llega a cero y ejecute el cambio de modo automaticamente.</li>
+          <li>Renderizar la lista de sesiones guardadas debajo del timer.</li>
+        </ul>
+      </div>
+
+      <!-- Pasos -->
+      <div class="section">
+        <div class="section-title steps">Instrucciones</div>
+        <ol class="item-list numbered">
+          <li data-n="1">Copia tu componente funcional del Nivel 1 como punto de partida.</li>
+          <li data-n="2">Define dos constantes fuera del componente: <code>WORK_TIME = 1500</code> y <code>BREAK_TIME = 300</code>.</li>
+          <li data-n="3">Agrega un estado <code>mode</code> inicializado en <code>"work"</code> y un estado <code>sessions</code> inicializado como array vacio <code>[]</code>.</li>
+          <li data-n="4">Crea un segundo <code>useEffect</code> (separado del timer) que se ejecute cuando <code>timeLeft</code> cambie. Cuando <code>timeLeft === 0</code>:
+            <ul style="margin-top:8px; padding-left:20px; list-style:disc; color:var(--muted);">
+              <li>Si el modo actual es <code>"work"</code>, agrega una nueva sesion al array: <code>{ id: Date.now(), type: "work", duration: WORK_TIME, completedAt: new Date() }</code>.</li>
+              <li>Cambia el modo al opuesto.</li>
+              <li>Resetea <code>timeLeft</code> al tiempo del nuevo modo.</li>
+              <li>Arranca el timer automaticamente poniendo <code>isRunning</code> en <code>true</code>.</li>
+            </ul>
+          </li>
+          <li data-n="5">Modifica <code>resetTimer</code> para que tambien resetee <code>mode</code> a <code>"work"</code> y <code>sessions</code> a <code>[]</code>.</li>
+          <li data-n="6">Muestra el modo actual (Trabajo / Descanso) encima del timer, y debajo renderiza la lista de sesiones con <code>sessions.map()</code>. Cada elemento debe mostrar el numero de sesion, la duracion formateada y la hora de finalizacion.</li>
+        </ol>
+      </div>
+
+      <!-- Pistas -->
+      <div class="section">
+        <div class="section-title hints">Pistas</div>
+        <ul class="item-list hint">
+          <li>Para agregar al array sin mutarlo: <code>setSessions(prev =&gt; [...prev, nuevaSesion])</code>. El operador spread crea un nuevo array con todos los elementos anteriores mas el nuevo al final.</li>
+          <li>La <code>key</code> de cada <code>&lt;li&gt;</code> debe ser <code>session.id</code>. Nunca uses el indice del array como key si la lista puede cambiar de orden o tamanio.</li>
+          <li>Separa la logica del timer (cuenta regresiva) y la logica del cambio de modo en dos <code>useEffect</code> distintos. Cada efecto debe tener una sola responsabilidad.</li>
+        </ul>
+      </div>
+
+      <!-- Errores comunes -->
+      <div class="section">
+        <div class="section-title warnings">Errores comunes a evitar</div>
+        <ul class="item-list warning">
+          <li>Hacer <code>sessions.push(nuevaSesion)</code>. El metodo <code>push</code> muta el array original. React compara por referencia: si la referencia no cambia, no detecta la actualizacion y no re-renderiza.</li>
+          <li>Olvidar resetear <code>mode</code> y <code>sessions</code> en la funcion de reinicio. El usuario espera que "Reiniciar" devuelva todo al estado inicial.</li>
+          <li>Poner toda la logica en un solo <code>useEffect</code> gigante. Esto hace el codigo dificil de leer y propenso a bugs. Separar efectos por responsabilidad es una buena practica.</li>
+        </ul>
+      </div>
+
+      <div class="callout success">
+        <div class="callout-title">Resultado esperado</div>
+        El timer debe contar 25 minutos de trabajo, y al llegar a cero cambiar automaticamente
+        a 5 minutos de descanso (y viceversa). Cada sesion de trabajo completada aparece en una lista
+        debajo del timer con su numero y hora.
+      </div>
+    </div>
+
+
+    <!-- ════════════════════════════════════════════════════════ -->
+    <!-- NIVEL 3                                                 -->
+    <!-- ════════════════════════════════════════════════════════ -->
+    <div class="panel" id="n3">
+
+      <p class="panel-intro">
+        Nivel avanzado sin codigo base. Extiende tu solucion del Nivel 2 con configuracion personalizada,
+        retroalimentacion visual y estadisticas. Tu decides la estructura.
+      </p>
+
+      <!-- Objetivos -->
+      <div class="section">
+        <div class="section-title objectives">Objetivos</div>
+        <ul class="item-list checked">
+          <li>Permitir al usuario configurar los minutos de trabajo y descanso mediante inputs numericos.</li>
+          <li>Mostrar una barra de progreso visual que avance conforme pasa el tiempo.</li>
+          <li>Reproducir una alerta sonora o visual cuando se complete una sesion.</li>
+          <li>Calcular y mostrar estadisticas: total de sesiones de trabajo y tiempo total acumulado.</li>
+          <li>Agregar un boton para guardar la sesion actual aunque no haya terminado (sesion parcial).</li>
+        </ul>
+      </div>
+
+      <!-- Pasos -->
+      <div class="section">
+        <div class="section-title steps">Instrucciones</div>
+        <ol class="item-list numbered">
+          <li data-n="1"><strong>Configuracion:</strong> agrega dos estados para los minutos de trabajo y descanso. Renderiza inputs de tipo <code>number</code> con rango de 1 a 60. Los inputs deben estar deshabilitados mientras el timer esta corriendo. Cuando el usuario cambia un valor y el timer no esta activo, actualiza <code>timeLeft</code> con el nuevo valor convertido a segundos.</li>
+          <li data-n="2"><strong>Barra de progreso:</strong> calcula el porcentaje transcurrido con la formula <code>((tiempoTotal - timeLeft) / tiempoTotal) * 100</code>, donde <code>tiempoTotal</code> es la duracion total del modo actual en segundos. Usa ese valor para definir el <code>width</code> de un <code>&lt;div&gt;</code> interior dentro de un contenedor de ancho fijo.</li>
+          <li data-n="3"><strong>Sonido:</strong> en un <code>useEffect</code>, detecta cuando <code>timeLeft</code> llega a <code>0</code> y reproduce un sonido. Puedes usar <code>new Audio("https://actions.google.com/sounds/v1/alarms/beep_short.ogg").play()</code> envuelto en un try-catch. Asegurate de que las dependencias del efecto esten correctas para que no suene en cada render.</li>
+          <li data-n="4"><strong>Estadisticas:</strong> a partir del array de sesiones, calcula cuantas son de tipo <code>"work"</code> y suma sus duraciones. Muestra ambos valores encima o debajo del historial. No necesitas un estado aparte para esto: son valores derivados que puedes calcular directamente con <code>.filter()</code> y <code>.reduce()</code>.</li>
+          <li data-n="5"><strong>Sesion parcial:</strong> agrega un boton "Guardar sesion" que tome el tiempo transcurrido (<code>tiempoTotal - timeLeft</code>), lo guarde como una sesion con un tipo diferenciado (por ejemplo <code>"work (parcial)"</code>), y no detenga ni reinicie el timer.</li>
+        </ol>
+      </div>
+
+      <!-- Tabla de hooks necesarios -->
+      <div class="section">
+        <div class="section-title" style="color:var(--text);">Hooks que necesitas</div>
+        <table class="req-table">
+          <thead>
+            <tr>
+              <th>Hook</th>
+              <th>Para que lo usas en este nivel</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><code>useState</code></td>
+              <td><code>timeLeft</code>, <code>isRunning</code>, <code>mode</code>, <code>sessions</code>, <code>workMins</code>, <code>breakMins</code></td>
+            </tr>
+            <tr>
+              <td><code>useEffect</code></td>
+              <td>Timer (intervalo + cleanup), cambio de modo al llegar a 0, sincronizar <code>timeLeft</code> cuando cambia la configuracion, reproducir sonido al completar sesion</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <!-- Errores comunes -->
+      <div class="section">
+        <div class="section-title warnings">Errores comunes a evitar</div>
+        <ul class="item-list warning">
+          <li>Permitir que el usuario modifique la configuracion mientras el timer esta corriendo. Esto genera inconsistencias entre <code>tiempoTotal</code> y <code>timeLeft</code> que rompen el calculo del progreso.</li>
+          <li>Calcular el progreso usando el <code>tiempoTotal</code> del modo anterior despues de un cambio automatico. Asegurate de que al cambiar de modo, el valor de referencia se actualice antes de calcular el porcentaje.</li>
+          <li>Colocar la logica del sonido en un <code>useEffect</code> sin dependencias o con dependencias incorrectas. Si no especificas que el efecto depende de <code>timeLeft</code> o del cambio de modo, el sonido se ejecuta en cada render o nunca.</li>
+          <li>No validar los inputs. Valores como <code>0</code>, negativos, o strings vacios causan divisiones por cero en el progreso o timers que no funcionan.</li>
+        </ul>
+      </div>
+
+      <div class="callout info">
+        <div class="callout-title">Consideraciones de diseno</div>
+        Piensa en cuales valores realmente necesitan ser estado (cambian y afectan el render)
+        y cuales puedes derivar calculandolos a partir del estado existente. Por ejemplo,
+        el porcentaje de progreso y las estadisticas no necesitan su propio <code>useState</code>:
+        se calculan en cada render a partir de <code>timeLeft</code> y <code>sessions</code>.
+        Este patron sera importante cuando veas <code>useMemo</code> mas adelante.
+      </div>
+
+      <div class="callout success">
+        <div class="callout-title">Resultado esperado</div>
+        Un Pomodoro Timer completo donde el usuario configura los tiempos,
+        ve una barra de progreso que avanza, escucha un sonido al completar cada sesion,
+        y puede revisar un historial con estadisticas acumuladas.
+      </div>
+    </div>
+
+    <!-- Footer -->
+    <div class="footer">
+      STW 2026 &middot; Universidad del Valle de Guatemala
+    </div>
+
+  </div>
+
+  <script>
+    document.querySelectorAll('.tab').forEach(tab => {
+      tab.addEventListener('click', () => {
+        document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+        document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
+        tab.classList.add('active');
+        document.getElementById(tab.dataset.tab).classList.add('active');
+      });
+    });
+  </script>
+
+</body>
+</html>
