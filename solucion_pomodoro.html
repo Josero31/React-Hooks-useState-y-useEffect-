@@ -1,0 +1,623 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Solución: Pomodoro Timer — STW 2026</title>
+  <script crossorigin src="https://unpkg.com/react@18/umd/react.development.js"></script>
+  <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
+  <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;600&display=swap" rel="stylesheet">
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      background: #111;
+      color: #fff;
+      font-family: 'IBM Plex Mono', 'Courier New', monospace;
+      min-height: 100vh;
+    }
+    input[type=number]::-webkit-inner-spin-button,
+    input[type=number]::-webkit-outer-spin-button {
+      opacity: 1;
+      filter: invert(1);
+    }
+    button:hover { opacity: 0.85; }
+    button:active { transform: scale(0.97); }
+  </style>
+</head>
+<body>
+  <div id="root"></div>
+
+  <script type="text/babel">
+    const { useState, useEffect, useRef } = React;
+
+    /* ─────────────────────────────────────────────────────────────
+       UTILS
+    ───────────────────────────────────────────────────────────── */
+    function formatTime(seconds) {
+      const m = Math.floor(seconds / 60);
+      const s = seconds % 60;
+      return `${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
+    }
+
+    /* ─────────────────────────────────────────────────────────────
+       SHARED STYLES
+    ───────────────────────────────────────────────────────────── */
+    const S = {
+      card: {
+        background: '#1c1c1c',
+        borderRadius: 18,
+        padding: '36px 40px',
+        maxWidth: 480,
+        width: '100%',
+        boxShadow: '0 8px 40px rgba(0,0,0,0.6)',
+      },
+      levelTitle: {
+        color: '#c9a227',
+        fontSize: 11,
+        fontWeight: 600,
+        letterSpacing: '3px',
+        textAlign: 'center',
+        textTransform: 'uppercase',
+        marginBottom: 28,
+      },
+      clockWrap: {
+        display: 'flex',
+        justifyContent: 'center',
+        margin: '0 0 20px',
+      },
+      clockCircle: {
+        width: 210,
+        height: 210,
+        borderRadius: '50%',
+        border: '3px solid #3a3a3a',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+      },
+      clockTime: {
+        fontSize: 54,
+        fontWeight: 600,
+        letterSpacing: '3px',
+      },
+      demoNote: {
+        textAlign: 'center',
+        color: '#555',
+        fontSize: 13,
+        marginBottom: 24,
+      },
+      btnRow: {
+        display: 'flex',
+        gap: 12,
+        justifyContent: 'center',
+        flexWrap: 'wrap',
+      },
+      btnPrimary: {
+        background: '#e05a4e',
+        color: '#fff',
+        border: 'none',
+        borderRadius: 12,
+        padding: '13px 28px',
+        fontSize: 15,
+        fontWeight: 700,
+        cursor: 'pointer',
+        fontFamily: 'inherit',
+        transition: 'opacity 0.15s',
+      },
+      btnSecondary: {
+        background: 'transparent',
+        color: '#bbb',
+        border: '1px solid #444',
+        borderRadius: 12,
+        padding: '13px 28px',
+        fontSize: 15,
+        fontWeight: 600,
+        cursor: 'pointer',
+        fontFamily: 'inherit',
+        transition: 'opacity 0.15s',
+      },
+      btnBlue: {
+        background: 'transparent',
+        color: '#5b9bd5',
+        border: '1px solid #3a6ea0',
+        borderRadius: 12,
+        padding: '13px 22px',
+        fontSize: 15,
+        fontWeight: 600,
+        cursor: 'pointer',
+        fontFamily: 'inherit',
+        transition: 'opacity 0.15s',
+      },
+      modeBadge: {
+        display: 'inline-block',
+        background: 'rgba(224,90,78,0.15)',
+        color: '#e05a4e',
+        border: '1px solid rgba(224,90,78,0.35)',
+        borderRadius: 20,
+        padding: '5px 20px',
+        fontSize: 13,
+        fontWeight: 700,
+        letterSpacing: '2px',
+        textTransform: 'uppercase',
+      },
+      progressTrack: {
+        height: 3,
+        background: '#2e2e2e',
+        borderRadius: 2,
+        margin: '18px 0',
+        overflow: 'hidden',
+      },
+      input: {
+        background: '#252525',
+        color: '#fff',
+        border: '1px solid #3a3a3a',
+        borderRadius: 8,
+        padding: '9px 10px',
+        fontSize: 16,
+        fontFamily: 'inherit',
+        width: 90,
+        textAlign: 'center',
+      },
+      statBox: {
+        background: '#252525',
+        borderRadius: 12,
+        padding: '14px 28px',
+        textAlign: 'center',
+        flex: 1,
+      },
+      sessionList: {
+        marginTop: 20,
+        borderTop: '1px solid #2a2a2a',
+        paddingTop: 16,
+      },
+      sessionItem: {
+        display: 'flex',
+        justifyContent: 'space-between',
+        padding: '6px 0',
+        borderBottom: '1px solid #222',
+        fontSize: 13,
+        color: '#888',
+      },
+    };
+
+    /* ═══════════════════════════════════════════════════════════
+       NIVEL 1 — Timer básico (demo 10 segundos)
+    ═══════════════════════════════════════════════════════════ */
+    function PomodoroN1() {
+      const DEMO_TIME = 10;
+
+      // TODO 1: estados
+      const [timeLeft, setTimeLeft]   = useState(DEMO_TIME);
+      const [isRunning, setIsRunning] = useState(false);
+
+      // TODO 2: ref para el intervalo
+      const intervalRef = useRef(null);
+
+      // TODO 3: efecto del timer
+      useEffect(() => {
+        if (isRunning && timeLeft > 0) {
+          intervalRef.current = setInterval(() => {
+            setTimeLeft(prev => prev - 1);   // forma funcional: evita closure stale
+          }, 1000);
+        }
+        if (timeLeft === 0) {
+          setIsRunning(false);
+        }
+        return () => clearInterval(intervalRef.current); // cleanup obligatorio
+      }, [isRunning, timeLeft]);
+
+      // TODO 4: formatTime está en utils arriba
+
+      // TODO 5: funciones de control
+      function toggleTimer() {
+        setIsRunning(prev => !prev);
+      }
+
+      function resetTimer() {
+        setIsRunning(false);
+        setTimeLeft(DEMO_TIME);
+      }
+
+      // TODO 6: render
+      return (
+        <div style={S.card}>
+          <div style={S.levelTitle}>Solución de Referencia — Nivel 1</div>
+
+          <div style={S.clockWrap}>
+            <div style={S.clockCircle}>
+              <span style={S.clockTime}>{formatTime(timeLeft)}</span>
+            </div>
+          </div>
+
+          <p style={S.demoNote}>Demo con 10 segundos para prueba rápida</p>
+
+          <div style={S.btnRow}>
+            <button onClick={toggleTimer} style={S.btnPrimary}>
+              {isRunning ? '⏸ Pausar' : '▶ Iniciar'}
+            </button>
+            <button onClick={resetTimer} style={S.btnSecondary}>
+              ↺ Reiniciar
+            </button>
+          </div>
+        </div>
+      );
+    }
+
+    /* ═══════════════════════════════════════════════════════════
+       NIVEL 2 — Alternancia trabajo / descanso + historial
+    ═══════════════════════════════════════════════════════════ */
+    const WORK_TIME  = 1500; // 25 min
+    const BREAK_TIME = 300;  // 5 min
+
+    function PomodoroN2() {
+      const [timeLeft, setTimeLeft]   = useState(WORK_TIME);
+      const [isRunning, setIsRunning] = useState(false);
+      const [mode, setMode]           = useState('work');
+      const [sessions, setSessions]   = useState([]);
+      const intervalRef = useRef(null);
+
+      // Efecto 1: cuenta regresiva (misma responsabilidad que Nivel 1)
+      useEffect(() => {
+        if (isRunning && timeLeft > 0) {
+          intervalRef.current = setInterval(() => {
+            setTimeLeft(prev => prev - 1);
+          }, 1000);
+        }
+        return () => clearInterval(intervalRef.current);
+      }, [isRunning, timeLeft]);
+
+      // Efecto 2: detecta fin de sesión y cambia modo (responsabilidad separada)
+      useEffect(() => {
+        if (timeLeft !== 0) return;
+
+        if (mode === 'work') {
+          // spread: nunca mutar el array directamente
+          setSessions(prev => [...prev, {
+            id: Date.now(),
+            type: 'work',
+            duration: WORK_TIME,
+            completedAt: new Date(),
+          }]);
+        }
+
+        const nextMode = mode === 'work' ? 'break' : 'work';
+        setMode(nextMode);
+        setTimeLeft(nextMode === 'work' ? WORK_TIME : BREAK_TIME);
+        setIsRunning(true); // arranca automáticamente el siguiente ciclo
+      }, [timeLeft, mode]);
+
+      function toggleTimer() { setIsRunning(p => !p); }
+
+      function resetTimer() {
+        setIsRunning(false);
+        setTimeLeft(WORK_TIME);
+        setMode('work');
+        setSessions([]); // importante: resetear también modo y sesiones
+      }
+
+      const workCount = sessions.filter(s => s.type === 'work').length;
+
+      return (
+        <div style={S.card}>
+          <div style={S.levelTitle}>Solución de Referencia — Nivel 2</div>
+
+          <div style={{ textAlign: 'center', marginBottom: 18 }}>
+            <span style={S.modeBadge}>
+              {mode === 'work' ? '🔥 Trabajo' : '🌿 Descanso'}
+            </span>
+          </div>
+
+          <div style={S.clockWrap}>
+            <div style={S.clockCircle}>
+              <span style={S.clockTime}>{formatTime(timeLeft)}</span>
+            </div>
+          </div>
+
+          <div style={S.btnRow}>
+            <button onClick={toggleTimer} style={S.btnPrimary}>
+              {isRunning ? '⏸ Pausar' : '▶ Iniciar'}
+            </button>
+            <button onClick={resetTimer} style={S.btnSecondary}>
+              ↺ Reiniciar
+            </button>
+          </div>
+
+          {sessions.length > 0 && (
+            <div style={S.sessionList}>
+              <div style={{ color: '#555', fontSize: 11, letterSpacing: 2, marginBottom: 10 }}>
+                SESIONES COMPLETADAS — {workCount} de trabajo
+              </div>
+              <ul style={{ listStyle: 'none' }}>
+                {sessions.map((s, i) => (
+                  <li key={s.id} style={S.sessionItem}>
+                    <span>#{i + 1} — {s.type === 'work' ? '🔥 Trabajo' : '🌿 Descanso'}</span>
+                    <span>{formatTime(s.duration)} · {s.completedAt.toLocaleTimeString()}</span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
+        </div>
+      );
+    }
+
+    /* ═══════════════════════════════════════════════════════════
+       NIVEL 3 — Configurable, barra de progreso, stats, parcial
+    ═══════════════════════════════════════════════════════════ */
+    function PomodoroN3() {
+      const [workMins, setWorkMins]   = useState(1);
+      const [breakMins, setBreakMins] = useState(1);
+      const [mode, setMode]           = useState('work');
+      const [timeLeft, setTimeLeft]   = useState(1 * 60);
+      const [isRunning, setIsRunning] = useState(false);
+      const [sessions, setSessions]   = useState([]);
+      const intervalRef = useRef(null);
+
+      // Valores derivados (no necesitan estado propio)
+      const totalTime   = mode === 'work' ? workMins * 60 : breakMins * 60;
+      const progress    = totalTime > 0 ? ((totalTime - timeLeft) / totalTime) * 100 : 0;
+      const workSessions = sessions.filter(s => s.type.startsWith('work') && !s.type.includes('parcial'));
+      const totalWorkSec = workSessions.reduce((acc, s) => acc + s.duration, 0);
+
+      // Efecto 1: intervalo del temporizador
+      useEffect(() => {
+        if (isRunning && timeLeft > 0) {
+          intervalRef.current = setInterval(() => {
+            setTimeLeft(prev => prev - 1);
+          }, 1000);
+        }
+        return () => clearInterval(intervalRef.current);
+      }, [isRunning, timeLeft]);
+
+      // Efecto 2: fin de sesión → sonido + cambio de modo
+      useEffect(() => {
+        if (timeLeft !== 0) return;
+
+        try {
+          new Audio('https://actions.google.com/sounds/v1/alarms/beep_short.ogg').play();
+        } catch (_) {}
+
+        if (mode === 'work') {
+          setSessions(prev => [...prev, {
+            id: Date.now(),
+            type: 'work',
+            duration: workMins * 60,
+            completedAt: new Date(),
+          }]);
+        }
+
+        const nextMode = mode === 'work' ? 'break' : 'work';
+        const nextTime = nextMode === 'work' ? workMins * 60 : breakMins * 60;
+        setMode(nextMode);
+        setTimeLeft(nextTime);
+        setIsRunning(true);
+      }, [timeLeft, mode, workMins, breakMins]);
+
+      // Handlers de configuración (actualiza timeLeft solo si no está corriendo)
+      function handleWorkMins(val) {
+        const mins = Math.max(1, Math.min(60, Number(val) || 1));
+        setWorkMins(mins);
+        if (!isRunning && mode === 'work') setTimeLeft(mins * 60);
+      }
+
+      function handleBreakMins(val) {
+        const mins = Math.max(1, Math.min(60, Number(val) || 1));
+        setBreakMins(mins);
+        if (!isRunning && mode === 'break') setTimeLeft(mins * 60);
+      }
+
+      function toggleTimer() { setIsRunning(p => !p); }
+
+      function resetTimer() {
+        setIsRunning(false);
+        setMode('work');
+        setTimeLeft(workMins * 60);
+        setSessions([]);
+      }
+
+      function savePartial() {
+        const elapsed = totalTime - timeLeft;
+        if (elapsed <= 0) return;
+        setSessions(prev => [...prev, {
+          id: Date.now(),
+          type: mode + ' (parcial)',
+          duration: elapsed,
+          completedAt: new Date(),
+        }]);
+      }
+
+      return (
+        <div style={S.card}>
+          <div style={S.levelTitle}>Solución de Referencia — Nivel 3</div>
+
+          {/* Configuración */}
+          <div style={{ display: 'flex', gap: 24, justifyContent: 'center', marginBottom: 20 }}>
+            <div style={{ textAlign: 'center' }}>
+              <div style={{ color: '#666', fontSize: 12, marginBottom: 6 }}>Trabajo (min)</div>
+              <input
+                type="number" min="1" max="60"
+                value={workMins}
+                disabled={isRunning}
+                onChange={e => handleWorkMins(e.target.value)}
+                style={{ ...S.input, opacity: isRunning ? 0.5 : 1 }}
+              />
+            </div>
+            <div style={{ textAlign: 'center' }}>
+              <div style={{ color: '#666', fontSize: 12, marginBottom: 6 }}>Descanso (min)</div>
+              <input
+                type="number" min="1" max="60"
+                value={breakMins}
+                disabled={isRunning}
+                onChange={e => handleBreakMins(e.target.value)}
+                style={{ ...S.input, opacity: isRunning ? 0.5 : 1 }}
+              />
+            </div>
+          </div>
+
+          {/* Badge de modo */}
+          <div style={{ textAlign: 'center', marginBottom: 18 }}>
+            <span style={S.modeBadge}>
+              {mode === 'work' ? '🔥 Trabajo' : '🌿 Descanso'}
+            </span>
+          </div>
+
+          {/* Reloj */}
+          <div style={S.clockWrap}>
+            <div style={S.clockCircle}>
+              <span style={S.clockTime}>{formatTime(timeLeft)}</span>
+            </div>
+          </div>
+
+          {/* Barra de progreso */}
+          <div style={S.progressTrack}>
+            <div style={{
+              height: '100%',
+              width: `${progress}%`,
+              background: mode === 'work' ? '#e05a4e' : '#2ecc71',
+              borderRadius: 2,
+              transition: 'width 0.5s linear',
+            }} />
+          </div>
+
+          {/* Botones */}
+          <div style={S.btnRow}>
+            <button onClick={toggleTimer} style={S.btnPrimary}>
+              {isRunning ? '⏸ Pausar' : '▶ Iniciar'}
+            </button>
+            <button onClick={resetTimer} style={S.btnSecondary}>
+              ↺ Reiniciar
+            </button>
+            <button onClick={savePartial} style={S.btnBlue}>
+              💾 Guardar parcial
+            </button>
+          </div>
+
+          {/* Estadísticas */}
+          <div style={{ display: 'flex', gap: 12, marginTop: 22 }}>
+            <div style={S.statBox}>
+              <div style={{ color: '#e05a4e', fontSize: 24, fontWeight: 700 }}>
+                {workSessions.length}
+              </div>
+              <div style={{ color: '#555', fontSize: 12, marginTop: 4 }}>Sesiones</div>
+            </div>
+            <div style={S.statBox}>
+              <div style={{ color: '#2ecc71', fontSize: 24, fontWeight: 700, letterSpacing: 2 }}>
+                {formatTime(totalWorkSec)}
+              </div>
+              <div style={{ color: '#555', fontSize: 12, marginTop: 4 }}>Tiempo total</div>
+            </div>
+          </div>
+
+          {/* Historial */}
+          {sessions.length > 0 && (
+            <div style={S.sessionList}>
+              <div style={{ color: '#555', fontSize: 11, letterSpacing: 2, marginBottom: 10 }}>
+                HISTORIAL
+              </div>
+              <ul style={{ listStyle: 'none' }}>
+                {sessions.map((s, i) => (
+                  <li key={s.id} style={S.sessionItem}>
+                    <span>#{i + 1} {s.type}</span>
+                    <span>{formatTime(s.duration)} · {s.completedAt.toLocaleTimeString()}</span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
+        </div>
+      );
+    }
+
+    /* ═══════════════════════════════════════════════════════════
+       APP — navegación por pestañas
+    ═══════════════════════════════════════════════════════════ */
+    function App() {
+      const [activeTab, setActiveTab] = useState(1);
+
+      const tabs = [
+        { n: 1, label: 'Nivel 1', sub: 'Guiado' },
+        { n: 2, label: 'Nivel 2', sub: 'Semi-guiado' },
+        { n: 3, label: 'Nivel 3', sub: 'Reto' },
+      ];
+
+      return (
+        <div style={{
+          minHeight: '100vh',
+          background: '#111',
+          display: 'flex',
+          flexDirection: 'column',
+          alignItems: 'center',
+          padding: '48px 20px 60px',
+        }}>
+          {/* Header */}
+          <div style={{ textAlign: 'center', marginBottom: 36 }}>
+            <div style={{ color: '#3a3a3a', fontSize: 11, letterSpacing: 3, marginBottom: 8 }}>
+              SOFTWARE DE TECNOLOGÍAS WEB — STW 2026
+            </div>
+            <h1 style={{ fontSize: 22, fontWeight: 700, letterSpacing: 1, marginBottom: 10 }}>
+              Pomodoro Timer — Soluciones
+            </h1>
+            <div style={{ display: 'flex', gap: 8, justifyContent: 'center' }}>
+              {['useState', 'useEffect', 'useRef'].map(h => (
+                <span key={h} style={{
+                  background: '#1e1e1e',
+                  border: '1px solid #2e2e2e',
+                  borderRadius: 6,
+                  padding: '3px 10px',
+                  fontSize: 12,
+                  color: '#888',
+                }}>{h}</span>
+              ))}
+            </div>
+          </div>
+
+          {/* Tabs */}
+          <div style={{
+            display: 'flex',
+            gap: 4,
+            marginBottom: 32,
+            background: '#1c1c1c',
+            padding: 4,
+            borderRadius: 12,
+          }}>
+            {tabs.map(({ n, label, sub }) => (
+              <button
+                key={n}
+                onClick={() => setActiveTab(n)}
+                style={{
+                  background: activeTab === n ? '#e05a4e' : 'transparent',
+                  color: activeTab === n ? '#fff' : '#666',
+                  border: 'none',
+                  borderRadius: 9,
+                  padding: '9px 22px',
+                  fontSize: 13,
+                  fontWeight: 700,
+                  cursor: 'pointer',
+                  fontFamily: 'inherit',
+                  transition: 'all 0.2s',
+                  lineHeight: 1.3,
+                }}
+              >
+                {label}
+                <span style={{
+                  display: 'block',
+                  fontSize: 10,
+                  fontWeight: 400,
+                  opacity: 0.7,
+                }}>{sub}</span>
+              </button>
+            ))}
+          </div>
+
+          {/* Panel */}
+          {activeTab === 1 && <PomodoroN1 />}
+          {activeTab === 2 && <PomodoroN2 />}
+          {activeTab === 3 && <PomodoroN3 />}
+        </div>
+      );
+    }
+
+    ReactDOM.createRoot(document.getElementById('root')).render(<App />);
+  </script>
+</body>
+</html>
