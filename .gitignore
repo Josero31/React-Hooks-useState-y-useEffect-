@@ -1,6 +1,9 @@
 # Dependencias
 node_modules/
 
+# Cache de Vite
+.vite/
+
 # Build
 dist/
 dist-ssr/
